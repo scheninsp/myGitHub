@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context="com.infi.uiwidgetttest.MainActivity">
+
+    <TextView
+        android:id="@+id/text_view"
+        android:layout_width="368dp"
+        android:layout_height="wrap_content"
+        android:text="想要日子过得去"
+        android:gravity = "center"
+        android:textSize = "24sp"
+        android:textColor="#00cc33"
+        tools:layout_editor_absoluteY="10dp"
+        tools:layout_editor_absoluteX="8dp" />
+
+    <Button
+        android:id="@+id/button_pick"
+        android:layout_width="106dp"
+        android:layout_height="46dp"
+        android:text = "抽卡"
+        android:textSize="24sp"
+        tools:layout_editor_absoluteX="36dp"
+        android:layout_marginTop="8dp"
+        app:layout_constraintTop_toBottomOf="@+id/text_view" />
+
+    <Button
+        android:id="@+id/button_lvlup"
+        android:layout_width="106dp"
+        android:layout_height="46dp"
+        android:text = "满破"
+        android:textSize="24sp"
+        tools:layout_editor_absoluteX="139dp"
+        android:layout_marginTop="8dp"
+        app:layout_constraintTop_toBottomOf="@+id/text_view"
+        app:layout_constraintLeft_toRightOf="@+id/button_pick"/>
+
+    <Button
+        android:id="@+id/button_clear"
+        android:layout_width="106dp"
+        android:layout_height="46dp"
+        android:text = "扔仓库"
+        android:textSize="24sp"
+        tools:layout_editor_absoluteX="262dp"
+        android:layout_marginTop="8dp"
+        app:layout_constraintTop_toBottomOf="@+id/text_view"
+        app:layout_constraintLeft_toRightOf="@+id/button_lvlup" />
+    />
+
+    <ImageView
+        android:id="@+id/img_main"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:scaleType="fitStart"
+        app:layout_constraintTop_toBottomOf="@+id/button_lvlup"
+    />
+
+    <ImageView
+        android:id="@+id/img_small"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:scaleType="center"
+        app:layout_constraintTop_toBottomOf="@+id/button_lvlup"
+        />
+<!--
+    <ImageView
+        android:id="@+id/image_view"
+        android:layout_width="268dp"
+        android:layout_height="334dp"
+        android:src = "@drawable/btbt"
+        tools:layout_editor_absoluteY="126dp"
+        tools:layout_editor_absoluteX="58dp" />
+-->
+
+</android.support.constraint.ConstraintLayout>
