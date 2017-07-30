@@ -1,0 +1,5 @@
+pyedflib
+matplotlib-1.5.3
+numpy-1.11.3
+Pillow-4.0.0
+scipy-0.18.1
