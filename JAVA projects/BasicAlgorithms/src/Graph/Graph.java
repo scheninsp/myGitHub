@@ -1,4 +1,4 @@
-package Graph;
+package Graph; //directed without-weight graph with adjacent matrix implementation
 
 public class Graph implements Cloneable { //directed without-weight graph
 	
