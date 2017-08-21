@@ -74,6 +74,12 @@ public class SegmentTree {
 	}
 	
 	public static void main(String args[]){
+		//input format :
+		//first line : nCase
+		//second line : 'search start index' 'search end index'
+		//third line : the array
+		// cycle the second and third line
+		
 		Scanner sc = new Scanner(System.in);
 		int[] temparray = getNumLine(sc.nextLine());		
 		int nCase = temparray[0];
