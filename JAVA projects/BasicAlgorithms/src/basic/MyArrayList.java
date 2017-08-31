@@ -28,6 +28,7 @@ public class MyArrayList{
 	}
 	
 	public void quickSort(int plow, int phigh) {  //recursively sorting binary divisions
+		//result from small to big ones
 		System.out.println("range:("+ plow +","+ phigh + ")"); //output current sorting index range
 
 		int mid = getMid(plow,phigh);
@@ -56,7 +57,7 @@ public class MyArrayList{
 	
 	
 	public void shellSort(){   //implement shellSort, a special form of insert sort
-		
+		//result from small to big ones
 		int inner,outer;
 		int temp;
 		
@@ -85,6 +86,43 @@ public class MyArrayList{
 	}
 	
 	
+	public void minHeap(int st, int heapSize){
+		int left = st*2;
+		int right = st*2+1;
+		int largest = st;
+		
+		if(left<=heapSize && mylist.get(left) < mylist.get(largest)){
+			largest = left;
+		}
+		
+		if(right<=heapSize && mylist.get(right) < mylist.get(largest)){
+			largest = right;
+		}
+		
+		if(largest != st){  //heap has changed
+			swap(largest,st);
+			minHeap(largest,heapSize);
+		}
+	}
+	
+	public void buildMinHeap(){
+		for(int i = (mylist.size()-1)/2; i>=0; i--){
+			minHeap(i,mylist.size()-1);
+		}
+	}
+	
+	public void heapSort(){
+		//using minHeap output from big to small
+		//using maxHeap output from small to big
+		buildMinHeap();
+		for(int i=0;i<mylist.size();i++){ 
+			swap(0,mylist.size()-i-1);
+			System.out.println("ORDERED:" + mylist);
+			
+			minHeap(0,mylist.size()-i-2);  //build from ith element
+		}
+	}
+	
 	public void swap(int p1, int p2){  
 		int temp = mylist.get(p1);
 		mylist.set(p1,mylist.get(p2));
@@ -102,7 +140,10 @@ public class MyArrayList{
 		
 		//myArrayList.quickSort(0,myArrayList.mylist.size()-1);  //quicksort the whole sequence
 		
-		myArrayList.shellSort();
+		//myArrayList.shellSort();
+		
+		myArrayList.heapSort();
+		
 		System.out.println("ORDERED:" + myArrayList.mylist);
 		
 	}
