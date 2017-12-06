@@ -11,11 +11,11 @@ implements inference(), loss(), training()
 this file is used by the various "fully_connected_*.py" files and not meant
 to be run.
 """
-
+"""
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-
+"""
 import math
 
 import tensorflow as tf
@@ -82,7 +82,7 @@ def loss(logits, labels):
     """
 
     labels = tf.to_int64(labels)        
-    cross_entropy = tf.nn.sparse_sorfmax_cross_entropy_with_logits(
+    cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
             labels=labels, logits=logits, name='xentropy')
     return tf.reduce_mean(cross_entropy, name='xentropy_mean')
 

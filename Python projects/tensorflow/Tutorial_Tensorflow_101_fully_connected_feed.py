@@ -18,7 +18,7 @@ from six.moves import xrange
 
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
-from tensorflow.examples.tutorials.mnist import mnist
+import Tutorial_Tensorflow_101_mnist as mnist
 
 #Model parameters
 FLAGS = None
