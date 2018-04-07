@@ -43,6 +43,30 @@ dict4.update(dict3)
 dict1_sortedlist = sorted(dict1.items(),key=operator.itemgetter(1))
 #operator.itemgetter(1) is a operator to equal to 'lambda s : s[1]'
 #sort dictionary by its [1] items, ([0] is key, [1] is the 1st value, etc..)
-print(dict1_sortedlist)
+#print(dict1_sortedlist)
+
+#test multi-dimension array
+#x = array([[[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]],
+#[[2, 0, 0, 0], [0, 2, 0, 0], [0, 0, 2, 0], [0, 0, 0, 2]]])
+
+# a list with shape (3,3,2)
+x=[]
+for i in range(3):
+     row = []
+     for j in range(3):
+         col = []
+         col.append(i + j)
+         col.append(i * j)
+         row.append(col)
+     x.append(row)
+
+print(x)
+print('len:',len(x))
+print('size x:', size(x))
+print('size x[0]:',size(x[0]))
+print('size(x,1):',size(x,1))
+print('size x[0][0]',size(x[0][0]))
+print('size(x,2):',size(x,2))
+print('shape(x) :', shape(x))
 
 print("Finished")
