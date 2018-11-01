@@ -50,16 +50,16 @@ train_captions, img_name_vector = shuffle(all_captions,
 num_examples = 3000
 train_captions = train_captions[:num_examples]
 img_name_vector = img_name_vector[:num_examples]
-#
-#def load_image(image_path):
-#    img = tf.read_file(image_path)
-#    img = tf.image.decode_jpeg(img, channels=3)
-#    #reshape image for inception_v3
-#    img = tf.image.resize_images(img,(299,299))
-#    #limit image range to -1,1 for inception_v3
-#    img = tf.keras.applications.inception_v3.preprocess_input(img)
-#    return img, image_path
-#
+
+def load_image(image_path):
+    img = tf.read_file(image_path)
+    img = tf.image.decode_jpeg(img, channels=3)
+    #reshape image for inception_v3
+    img = tf.image.resize_images(img,(299,299))
+    #limit image range to -1,1 for inception_v3
+    img = tf.keras.applications.inception_v3.preprocess_input(img)
+    return img, image_path
+
 ###debug load_image
 #test_img, test_image_path = load_image(img_name_vector[-1])
 #test_img_show = (test_img+1)/2
@@ -68,20 +68,20 @@ img_name_vector = img_name_vector[:num_examples]
 #print(img_name_vector[-1])
 #print(train_captions[-1])
 #
-##Use the InceptionV3 to extract features from original images
-#image_model = tf.keras.applications.InceptionV3(include_top = False,
-#                                                weights = 'imagenet')
-#
-##this file might only be weights so load_model won't work ?   
-##image_model = load_model("C:/Myworks/downloaded_models/inception_v3_weights_tf_dim_ordering_tf_kernels_notop.h5")
-##put this file into the keras downloaded path for models (on Windows,
-## it's in /Users/YOUR_NAME/.keras/models)
-#
-#new_input = image_model.input
-#hidden_layer = image_model.layers[-1].output  
-##8*8*2048, last convolutional layer in inceptionV3
-#
-#image_features_extract_model = tf.keras.Model(new_input, hidden_layer)
+#Use the InceptionV3 to extract features from original images
+image_model = tf.keras.applications.InceptionV3(include_top = False,
+                                                weights = 'imagenet')
+
+#this file might only be weights so load_model won't work ?   
+#image_model = load_model("C:/Myworks/downloaded_models/inception_v3_weights_tf_dim_ordering_tf_kernels_notop.h5")
+#put this file into the keras downloaded path for models (on Windows,
+# it's in /Users/YOUR_NAME/.keras/models)
+
+new_input = image_model.input
+hidden_layer = image_model.layers[-1].output  
+#8*8*2048, last convolutional layer in inceptionV3
+
+image_features_extract_model = tf.keras.Model(new_input, hidden_layer)
 #
 ##Caching features extracted by InceptionV3
 #encode_train = sorted(set(img_name_vector))
@@ -351,8 +351,8 @@ for epoch in range(EPOCHS):
     
     # Model cannot be saved for input_shape undefined ???
 #    #save model at each epoch
-#    encoder.save('./caption_model/caption_encoder.h5')
-#    decoder.save('./caption_model/caption_decoder.h5')
+    encoder.save_weights('./caption_model/caption_encoder.h5')
+    decoder.save_weights('./caption_model/caption_decoder.h5')
 
 
 #plt whole training
@@ -361,3 +361,64 @@ plt.xlabel('Epochs')
 plt.ylabel('Loss')
 plt.title('Loss Plot')
 plt.show()
+
+#----------------Evaluate ----------------------
+def evaluate(image):
+    attention_plot = np.zeros((max_length, attention_features_shape))
+
+    hidden = decoder.reset_state(batch_size=1)
+
+    temp_input = tf.expand_dims(load_image(image)[0], 0)
+    img_tensor_val = image_features_extract_model(temp_input)
+    img_tensor_val = tf.reshape(img_tensor_val, (img_tensor_val.shape[0], -1, img_tensor_val.shape[3]))
+
+    features = encoder(img_tensor_val)
+
+    dec_input = tf.expand_dims([tokenizer.word_index['<start>']], 0)
+    result = []
+
+    for i in range(max_length):
+        predictions, hidden, attention_weights = decoder(dec_input, features, hidden)
+
+        attention_plot[i] = tf.reshape(attention_weights, (-1, )).numpy()
+
+        predicted_id = tf.multinomial(predictions, num_samples=1)[0][0].numpy()
+        result.append(index_word[predicted_id])
+
+        if index_word[predicted_id] == '<end>':
+            return result, attention_plot
+
+        dec_input = tf.expand_dims([predicted_id], 0)
+
+    attention_plot = attention_plot[:len(result), :]
+    return result, attention_plot
+
+
+def plot_attention(image, result, attention_plot):
+    temp_image = np.array(Image.open(image))
+
+    fig = plt.figure(figsize=(10, 10))
+    
+    len_result = len(result)
+    for l in range(len_result):
+        temp_att = np.resize(attention_plot[l], (8, 8))
+        ax = fig.add_subplot(len_result//2, len_result//2, l+1)
+        ax.set_title(result[l])
+        img = ax.imshow(temp_image)
+        ax.imshow(temp_att, cmap='gray', alpha=0.6, extent=img.get_extent())
+
+    plt.tight_layout()
+    plt.show()
+    
+    
+# captions on the validation set
+rid = np.random.randint(0, len(img_name_val))
+image = img_name_val[rid]
+real_caption = ' '.join([index_word[i] for i in cap_val[rid] if i not in [0]])
+result, attention_plot = evaluate(image)
+
+print ('Real Caption:', real_caption)
+print ('Prediction Caption:', ' '.join(result))
+plot_attention(image, result, attention_plot)
+# opening the image
+Image.open(img_name_val[rid])
