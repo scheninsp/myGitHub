@@ -349,9 +349,10 @@ for epoch in range(EPOCHS):
                                          total_loss/len(cap_vector)))
     print ('Time taken for 1 epoch {} sec\n'.format(time.time() - start))
     
-    #save model at each epoch
-    encoder.save('./caption_model/caption_encoder.h5')
-    decoder.save('./caption_model/caption_decoder.h5')
+    # Model cannot be saved for input_shape undefined ???
+#    #save model at each epoch
+#    encoder.save('./caption_model/caption_encoder.h5')
+#    decoder.save('./caption_model/caption_decoder.h5')
 
 
 #plt whole training
