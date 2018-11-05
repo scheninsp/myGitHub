@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import json
 
 from sklearn.utils import shuffle
+from sklearn.model_selection import train_test_split
 
 # ---------input a ndarray------------
 #x = np.zeros((8,2))
@@ -122,29 +123,103 @@ num_examples = 3000
 train_caps = train_caps[:num_examples]
 train_img_file = train_img_file[:num_examples]
 
+#
+##Caching features extracted by InceptionV3
+#encode_train = sorted(set(train_img_file))
+##list, len 2962, set() keeps only unique elements, because 1 pic has multiple captions?
+#
+#image_dataset = tf.data.Dataset.from_tensor_slices(
+#        encode_train).map(load_image).batch(3)
+## nBatch =16 will trigger OOM on Mipro
+#
+#
+##--------- Iterate the Dataset ----------------
+#dataset_iter = image_dataset.make_initializable_iterator()
+#
+#with tf.Session() as sess:
+#    sess.run(dataset_iter.initializer)
+##    print(image_dataset)  #<BatchDataset shapes: ((?, 299, 299, 3), (?,)), types: (tf.float32, tf.string)>
+#    
+#    dataset_1st_image, dataset_1st_str = dataset_iter.get_next()   #dataset_1st_image:[3,299,299,3]  dataset_1st_str: 3*1 strings
+#
+#    img_toshow = (dataset_1st_image[0,]+1)/2   
+#    str_toshow = dataset_1st_str
+#
+#    img_toshow, str_toshow = sess.run([img_toshow,str_toshow])   #simultaneously run iterator
+#    plt.imshow(img_toshow)      
+#    print(str_toshow)
 
-#Caching features extracted by InceptionV3
-encode_train = sorted(set(train_img_file))
-#list, len 2962, set() keeps only unique elements, because 1 pic has multiple captions?
-
-image_dataset = tf.data.Dataset.from_tensor_slices(
-        encode_train).map(load_image).batch(3)
-# nBatch =16 will trigger OOM on Mipro
 
 
-#--------- Iterate the Dataset ----------------
-dataset_iter = image_dataset.make_initializable_iterator()
+#--------------------------Tokenize Captions -----------------------
+# tokenize captions
+def calc_max_length(tensor):
+    return max(len(t) for t in tensor)
 
-with tf.Session() as sess:
-    sess.run(dataset_iter.initializer)
-#    print(image_dataset)  #<BatchDataset shapes: ((?, 299, 299, 3), (?,)), types: (tf.float32, tf.string)>
-    
-    dataset_1st_image, dataset_1st_str = dataset_iter.get_next()   #dataset_1st_image:[3,299,299,3]  dataset_1st_str: 3*1 strings
+top_k = 5000   #size of vocabulary
+tokenizer = tf.keras.preprocessing.text.Tokenizer(num_words = top_k,
+                                                  oov_token = "<unk>",
+                                                  filters = '!"#$%&()*+.,-/:;=?@[\]^_`{|}~ ')
+tokenizer.fit_on_texts(train_caps)  #generate vocabulary
+train_seqs = tokenizer.texts_to_sequences(train_caps)  #code 'train_captions', len=414113 list [3,28.3139,101,7,124,4,1656]
+#this step generate the full vocabulary
 
-    img_toshow = (dataset_1st_image[0,]+1)/2   
-    str_toshow = dataset_1st_str
+tokenizer.word_index = {key:value for key,value in tokenizer.word_index.items() if value <= top_k}
+tokenizer.word_index[tokenizer.oov_token] = top_k + 1  #oov_token was used for changing words outside vocabulary
+tokenizer.word_index['<pad>'] = 0 
 
-    img_toshow, str_toshow = sess.run([img_toshow,str_toshow])   #simultaneously run iterator
-    plt.imshow(img_toshow)      
-    print(str_toshow)
+train_seqs = tokenizer.texts_to_sequences(train_caps)  #code 'train_captions' again ??? [3,352,617,1,290,4,1,92,382,2]
 
+index_word = {value:key for key, value in tokenizer.word_index.items()}
+
+cap_vector = tf.keras.preprocessing.sequence.pad_sequences(train_seqs, padding = 'post')
+
+max_length = calc_max_length(train_seqs)
+
+#--------------------------Split data into train and test -----------------------
+
+img_name_train, img_name_val, cap_train, cap_val = train_test_split(
+        train_img_file,
+        cap_vector,
+        test_size = 0.2,
+        random_state = 0)
+
+print(len(img_name_train), len(cap_train), len(img_name_val), len(cap_val))
+
+
+#--------------------------Create tf.data.Dataset  -----------------------
+BATCH_SIZE = 8
+BUFFER_SIZE = 125  
+embedding_dim = 256
+units = 512
+vocab_size = len(tokenizer.word_index)
+#shape of vector extracted by InceptionV3 is (64,2048)
+features_shape = 2048
+attention_features_shape = 64
+
+#loading the numpy(.np) files saved before
+def map_func(img_name, cap):
+    img_tensor = np.load(img_name.decode('utf-8')+'.npy')
+    return img_tensor, cap
+
+dataset = tf.data.Dataset.from_tensor_slices((img_name_train, cap_train))
+
+#use map to load images in parallel
+#py_func
+#Wraps a python function and uses it as a TensorFlow op.
+dataset = dataset.map(lambda item1, item2: tf.py_func(
+        map_func, [item1, item2], [tf.float32,tf.int32]), num_parallel_calls=4)
+
+#shuffle and batch
+dataset = dataset.shuffle(BUFFER_SIZE)
+dataset = dataset.batch(BATCH_SIZE)
+# https://www.tensorflow.org/api_docs/python/tf/contrib/data/batch_and_drop_remainder
+dataset = dataset.prefetch(1)   #prefetch buffer size
+#
+##debug: iterator of dataset
+## create the iterator
+#iter = dataset.make_one_shot_iterator()
+#el = iter.get_next()  #el is (64,64,2048)
+##because it's in eagerTensor so no need to use sess.run
+
+#--------------Build model ----------
