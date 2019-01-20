@@ -52,8 +52,9 @@ public class MainActivity {
 	}
 
 	public static void main(String[] args) throws Exception{
-	    String filePath = "C:\\Anime\\temp\\doujin_temp";
+	    String filePath = "C:\\Anime\\temp\\cg_temp";
 	    decompressFiles(filePath);
+	    System.out.println("Process Finished");
 	}
 	
 
