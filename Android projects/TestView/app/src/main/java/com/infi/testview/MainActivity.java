@@ -13,6 +13,7 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.view.SurfaceView;
 import android.view.SurfaceHolder;
+import android.widget.ImageView;
 
 
 public class MainActivity extends Activity {
@@ -21,7 +22,8 @@ public class MainActivity extends Activity {
 
     private static Bitmap mBitmap;
 
-    private SurfaceViewL sfv = null;
+    private static SurfaceViewL sfv = null;
+    private static ImageView img = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState){
@@ -32,7 +34,7 @@ public class MainActivity extends Activity {
 
         setContentView(R.layout.activity_main);
         sfv = (SurfaceViewL) findViewById(R.id.sfv01);
-        //setContentView(sfv);
+        img = (ImageView) findViewById(R.id.im01);
 
         Thread thread = new Thread(sfv);
         thread.run();
@@ -92,6 +94,8 @@ public class MainActivity extends Activity {
 
                     canvas.drawBitmap(mBitmap, mSrcRect, mDestRect, mBitPaint);
                     holder.unlockCanvasAndPost(canvas);
+
+                    img.setImageResource(R.drawable.p01);
 
                 }
 

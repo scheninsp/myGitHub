@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation = "horizontal"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:weightSum="1">
+
+    <view
+        class = "com.infi.testview.MainActivity$SurfaceViewL"
+        android:id="@+id/sfv01"
+        android:layout_width="450dp"
+        android:layout_height="250dp" />
+
+
+        <ImageView
+            android:id="@+id/im01"
+            android:layout_width="82dp"
+            android:layout_height="wrap_content"
+            app:layout_constraintLeft_toRightOf = "@+id/sfv01"
+            android:layout_weight="0.76"/>
+
+</LinearLayout>
+
