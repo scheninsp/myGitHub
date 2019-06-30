@@ -1,9 +1,14 @@
 import numpy as np
 from scipy.optimize import minimize
 import copy
+import cv2
 
 WIDTH=114
 HEIGHT=86
+
+# neighbour for one pixel
+DW = 1
+DH = 1
 
 FACE_AREAS = np.zeros((2,4),dtype = np.float32)
 INDX_GRID = np.zeros ( (HEIGHT, WIDTH, 2), dtype = np.float32)  # indicate original index
@@ -27,6 +32,8 @@ def myfunc(coords):
     # - coords : 1 * (H * W * 2)
     # - face_areas : nFace * 4 (xmin, xmax, ymin, ymax)
     kFace = FACE_AREAS.shape[0]
+
+    # term of || vi - ui ||^2 in face areas
     face_areas_indx_x = [[]]
     for k in range(kFace-1):
         face_areas_indx_x.append([])
@@ -37,15 +44,82 @@ def myfunc(coords):
                 face_areas_indx_x[k].append(2 * WIDTH * i + 2 * j)
                 face_areas_indx_y[k].append(2 * WIDTH * i + 2 * j + 1)
 
-    energy = 0
+    ef = 0
     for k in range(kFace):
-        energy += np.sum((coords[face_areas_indx_x[k]] - U_GRID_FLATTEN[face_areas_indx_x[k]]) ** 2)
+        ef += np.sum((coords[face_areas_indx_x[k]] - U_GRID_FLATTEN[face_areas_indx_x[k]]) ** 2)
+
+    # term of || vi - vj ||^2
+    er = 0
+    for i in range(HEIGHT):
+        for j in range(WIDTH):
+            tmpx = 0
+            tmpy = 0
+            neighbour_area_indx_x = []
+            neighbour_area_indx_y = []
+            for i2 in range(max(0, i-DH),min(HEIGHT,i+DH+1)):
+                for j2 in range(max(0, j-DW),min(WIDTH,j+DW+1)):
+                    neighbour_area_indx_x.append(2 * WIDTH * i2 + 2 * j2)
+                    neighbour_area_indx_y.append(2 * WIDTH * i2 + 2 * j2 + 1)
+
+            lx = len(neighbour_area_indx_x)
+            ly = len(neighbour_area_indx_y)
+            tmpx += np.sum((coords[2 * WIDTH * i + 2 * j] * np.ones((1, lx), dtype=np.float32) -
+                     coords[neighbour_area_indx_x]) ** 2)
+            tmpy += np.sum((coords[2 * WIDTH * i + 2 * j + 1] * np.ones((1, ly), dtype=np.float32) -
+                     coords[neighbour_area_indx_y]) ** 2)
+
+            er += (tmpx + tmpy)
+
+    lambda_f = 4
+    lambda_r = 0.5
+
+    energy = lambda_f * ef + lambda_r * er
 
     return energy
 """
 def myfunc_der(coords):
     return coords_der_out
 """
+
+def map_flat_to_grid(coords_flat,height,width):
+
+    coords_grid = np.zeros((height,width,2),dtype=np.float32)
+    for i in range(height):
+        for j in range(width):
+            coords_grid[i,j,0] = coords_flat[2 * width * i + 2 * j]
+            coords_grid[i,j,1] = coords_flat[2 * width * i + 2 * j + 1]
+    return coords_grid
+
+def visualize_grid(coords_grid):
+
+    height, width = coords_grid.shape[:2]
+
+    #prepare draw board
+    pixel_inter = 20
+    new_height = height*pixel_inter
+    new_width = width*pixel_inter
+    img_draw = 255 * np.ones((new_height, new_width, 3),np.uint8)
+
+    #expand meshgrid
+    coords_grid = coords_grid * pixel_inter
+    coords_grid_mask = np.all ((coords_grid > [0,0]) & (coords_grid < [new_width, new_height]), axis=-1)
+
+    color = (255,0,0)
+    thick = 2
+    for i in range(height):
+        for j in range(width-1):
+            if coords_grid_mask[i,j] and coords_grid_mask[i,j+1]:
+                cv2.line(img_draw, tuple(coords_grid[i,j,:]),tuple(coords_grid[i,j+1,:]),
+                     color, thick)
+
+    for j in range(width):
+        for i in range(height-1):
+            if coords_grid_mask[i,j] and coords_grid_mask[i+1,j]:
+                cv2.line(img_draw, tuple(coords_grid[i,j,:]),tuple(coords_grid[i+1,j,:]),
+                     color, thick)
+
+    cv2.imwrite("./grid.png",img_draw)
+
 if __name__ == "__main__":
 
     width = WIDTH
@@ -72,5 +146,9 @@ if __name__ == "__main__":
     U_GRID_FLATTEN = u_grid.flatten()
 
     result1 = myfunc(coords_flat)
+
+    #plot current meshgrid
+    result_grid = map_flat_to_grid(U_GRID_FLATTEN,height,width)
+    visualize_grid(result_grid)
 
     print("finished")
