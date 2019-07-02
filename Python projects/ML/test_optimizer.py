@@ -2,6 +2,7 @@ import numpy as np
 from scipy.optimize import minimize
 import copy
 import cv2
+from math import sqrt
 
 WIDTH=114
 HEIGHT=86
@@ -14,9 +15,12 @@ FACE_AREAS = np.zeros((2,4),dtype = np.float32)
 INDX_GRID = np.zeros ( (HEIGHT, WIDTH, 2), dtype = np.float32)  # indicate original index
 U_GRID = np.zeros ( (HEIGHT, WIDTH, 2), dtype = np.float32)  # undistort grid using radial function
 U_GRID_FLATTEN = U_GRID.flatten()
+EIJ_GRID = np.zeros ( (HEIGHT, WIDTH, 2*DH+1, 2*DW+1, 2), dtype = np.float32)
+# eij from point i to point j, (piy, pix, pjy, pjx , 2)
 
 LAMBDA_F = 4
-LAMBDA_R = 0.5
+LAMBDA_B = 0.2
+LAMBDA_R = 0.1
 
 
 def distort_coords(coords, cx, cy, k1):
@@ -74,7 +78,40 @@ def myfunc(coords):
 
             er += (tmpx + tmpy)
 
-    energy = LAMBDA_F * ef + LAMBDA_R * er
+    # term of || (vi - vj) x eij ||^2
+    eb = 0
+    for i in range(HEIGHT):
+        for j in range(WIDTH):
+            neighbour_area_indx_x = []
+            neighbour_area_indx_y = []
+            for i2 in range(max(0, i - DH), min(HEIGHT, i + DH + 1)):
+                for j2 in range(max(0, j - DW), min(WIDTH, j + DW + 1)):
+                    neighbour_area_indx_x.append(2 * WIDTH * i2 + 2 * j2)
+                    neighbour_area_indx_y.append(2 * WIDTH * i2 + 2 * j2 + 1)
+
+            lx = len(neighbour_area_indx_x)
+            ly = len(neighbour_area_indx_y)
+            actual_dh = min(HEIGHT, i + DH + 1) - max(0, i - DH)   #for image boundary regions
+            actual_dw = min(WIDTH, j + DW + 1) - max(0, j - DW)
+
+            #reshape EIJ_GRID into same shape with coords[neighbour_area_indx]
+            eij_neighbour_flat =  (EIJ_GRID[i,j,0:actual_dh,0:actual_dw,:]).flatten()
+            len_e = len(eij_neighbour_flat)
+
+            #if len_e != (lx+ly):
+            #    print("debug!")
+
+            # (xi - xj) * y_eij - x_eij * (yi-yj) , cross-product
+            tmp1 = (coords[2 * WIDTH * i + 2 * j] * np.ones(lx, dtype=np.float32) -
+                            coords[neighbour_area_indx_x]) * eij_neighbour_flat[list(range(1,len_e,2))]
+            tmp2 = (coords[2 * WIDTH * i + 2 * j + 1] * np.ones(ly, dtype=np.float32) -
+                            coords[neighbour_area_indx_y]) * eij_neighbour_flat[list(range(0,len_e,2))]
+
+            # print("debug")
+
+            eb += np.sum((tmp1 - tmp2) ** 2)
+
+    energy = LAMBDA_F * ef + LAMBDA_R * er +LAMBDA_B * eb
 
     return energy
     
@@ -87,7 +124,8 @@ def myfunc_der(coords):
         return coords
         
     nvar = int(len(coords)/2)
-    
+
+    # derivative of ef
     ef_der = np.zeros(2*nvar, dtype=np.float32)
     kFace = FACE_AREAS.shape[0]
     
@@ -104,7 +142,8 @@ def myfunc_der(coords):
     for k in range(kFace):
         ef_der[face_areas_indx[k]] = ef_der[face_areas_indx[k]] + \
         2 * (coords[face_areas_indx[k]] - U_GRID_FLATTEN[face_areas_indx[k]])
-        
+
+    #derivative of er
     er_der = np.zeros(2*nvar, dtype=np.float32)
     
     for i in range(HEIGHT):
@@ -124,8 +163,40 @@ def myfunc_der(coords):
             ly = len(neighbour_area_indx_y)
             er_der[2*WIDTH*i + 2*j] = 4 * np.sum(coords[2*WIDTH*i + 2*j] * np.ones(lx, dtype=np.float32) - coords[neighbour_area_indx_x])
             er_der[2*WIDTH*i + 2*j + 1] = 4 * np.sum(coords[2*WIDTH*i + 2*j + 1] * np.ones(lx, dtype=np.float32) - coords[neighbour_area_indx_y])
-            
-    e_der = LAMBDA_F * ef_der + LAMBDA_R * er_der
+
+    # derivative of eb
+    eb_der = np.zeros(2*nvar, dtype=np.float32)
+    for i in range(HEIGHT):
+        for j in range(WIDTH):
+            neighbour_area_indx_x = []
+            neighbour_area_indx_y = []
+            for i2 in range(max(0, i - DH), min(HEIGHT, i + DH + 1)):
+                for j2 in range(max(0, j - DW), min(WIDTH, j + DW + 1)):
+                    neighbour_area_indx_x.append(2 * WIDTH * i2 + 2 * j2)
+                    neighbour_area_indx_y.append(2 * WIDTH * i2 + 2 * j2 + 1)
+
+            lx = len(neighbour_area_indx_x)
+            ly = len(neighbour_area_indx_y)
+            actual_dh = min(HEIGHT, i + DH + 1) - max(0, i - DH)   #for image boundary regions
+            actual_dw = min(WIDTH, j + DW + 1) - max(0, j - DW)
+
+            #reshape EIJ_GRID into same shape with coords[neighbour_area_indx]
+            eij_neighbour_flat =  (EIJ_GRID[i,j,0:actual_dh,0:actual_dw,:]).flatten()
+            len_e = len(eij_neighbour_flat)
+
+            #if len_e != (lx+ly):
+            #    print("debug!")
+
+            # (xi - xj) * y_eij - x_eij * (yi-yj) , cross-product
+            tmp1 = (coords[2 * WIDTH * i + 2 * j] * np.ones(lx, dtype=np.float32) -
+                            coords[neighbour_area_indx_x]) * eij_neighbour_flat[list(range(1,len_e,2))]
+            tmp2 = (coords[2 * WIDTH * i + 2 * j + 1] * np.ones(ly, dtype=np.float32) -
+                            coords[neighbour_area_indx_y]) * eij_neighbour_flat[list(range(0,len_e,2))]
+
+            eb_der[2*WIDTH*i + 2*j] = 4 * np.sum((tmp1 - tmp2) * eij_neighbour_flat[list(range(1,len_e,2))])
+            eb_der[2*WIDTH*i + 2*j + 1] = 4 * np.sum((tmp1 - tmp2) *  (-eij_neighbour_flat[list(range(0, len_e, 2))]) )
+
+    e_der = LAMBDA_F * ef_der + LAMBDA_R * er_der + LAMBDA_B * eb_der
     
     return e_der
 
@@ -184,6 +255,21 @@ if __name__ == "__main__":
     x,y = np.meshgrid(np.linspace(0, width-1, width), np.linspace(0, height-1, height))
     coords = np.stack((x,y), axis=-1)
     INDX_GRID = coords
+    for i in range(HEIGHT):
+        for j in range(WIDTH):
+            ishift = 0
+            for i2 in range(max(0, i - DH), min(HEIGHT, i + DH + 1)):
+                jshift = 0
+                for j2 in range(max(0, j - DW), min(WIDTH, j + DW + 1)):
+                    # ishift = i2 - i + DH
+                    # jshift = j2 - j + DW   # do not use this for consistency within myfunc() eb
+                    # do not use this to ensure for boundary regions, indices are in the up-left corner in E[i,j,:]
+                    EIJ_GRID[i,j,ishift,jshift,:] = INDX_GRID[i,j,:] - INDX_GRID[i2,j2,:]
+                    norm = sqrt(np.sum(EIJ_GRID[i,j,ishift,jshift,:] ** 2))
+                    if norm != 0 :
+                        EIJ_GRID[i, j, ishift, jshift, :] = EIJ_GRID[i,j,ishift,jshift,:]/norm
+                    jshift += 1
+                ishift += 1
 
     u_grid = distort_coords(coords, cx, cy, k1)
 
