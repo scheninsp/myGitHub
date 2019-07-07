@@ -1,3 +1,8 @@
+# generate optimized merging meshgrid
+# ver. 2019070801
+# remove boundary gradients
+# add some debug code
+
 import numpy as np
 from scipy.optimize import minimize
 import copy
@@ -16,7 +21,7 @@ FACE_AREAS = np.zeros((2,4),dtype = np.float32)
 
 LAMBDA_F = 4
 LAMBDA_B = 0.5
-LAMBDA_R = 0.1
+LAMBDA_R = 0.2
 
 ADD_CONSTRAIN_BOUNDARY_ORI = True
 NPAD = 4
@@ -193,7 +198,9 @@ def myfunc_der(coords):
             lx = len(neighbour_area_indx_x)
             ly = len(neighbour_area_indx_y)
             er_der[2*WIDTH_PAD*i + 2*j] = 4 * np.sum(coords[2*WIDTH_PAD*i + 2*j] * np.ones(lx, dtype=np.float32) - coords[neighbour_area_indx_x])
-            er_der[2*WIDTH_PAD*i + 2*j + 1] = 4 * np.sum(coords[2*WIDTH_PAD*i + 2*j + 1] * np.ones(lx, dtype=np.float32) - coords[neighbour_area_indx_y])
+            er_der[2*WIDTH_PAD*i + 2*j + 1] = 4 * np.sum(coords[2*WIDTH_PAD*i + 2*j + 1] * np.ones(ly, dtype=np.float32) - coords[neighbour_area_indx_y])
+
+    # er_der_debug = map_flat_to_grid(er_der, HEIGHT_PAD, WIDTH_PAD)
 
     # derivative of eb
     eb_der = np.zeros(2*nvar, dtype=np.float32)
@@ -228,7 +235,17 @@ def myfunc_der(coords):
             eb_der[2*WIDTH_PAD*i + 2*j + 1] = 4 * np.sum((tmp1 - tmp2) *  (-eij_neighbour_flat[list(range(0, len_e, 2))]) )
 
     e_der = LAMBDA_F * ef_der + LAMBDA_R * er_der + LAMBDA_B * eb_der
-    
+
+    # remove pad area's gradients
+    e_der_tmp = map_flat_to_grid(e_der,HEIGHT_PAD,WIDTH_PAD)
+    e_der_tmp[0:NPAD, :, :] = 0
+    e_der_tmp[:, 0:NPAD, :] = 0
+    e_der_tmp[HEIGHT+NPAD:HEIGHT+2*NPAD, :, :] = 0
+    e_der_tmp[:,WIDTH+NPAD:WIDTH+2*NPAD, :] = 0
+
+    e_der = e_der_tmp.flatten()
+
+    """
     if ADD_CONSTRAIN_BOUNDARY_ORI:
         indx_top = np.asarray(list(range(0,2*WIDTH_PAD))) + 2*WIDTH_PAD *0
         indx_bottom = np.asarray(list(range(0, 2*WIDTH_PAD))) + 2*WIDTH_PAD *(HEIGHT_PAD - 1)
@@ -244,7 +261,7 @@ def myfunc_der(coords):
         e_der[indx_right] = 0
         e_der[indx_top] = 0
         e_der[indx_bottom] = 0
-    
+    """
     return e_der
 
 
@@ -253,6 +270,10 @@ def map_flat_to_grid(coords_flat,height,width):
     coords_grid = np.zeros((height,width,2),dtype=np.float32)
     for i in range(height):
         for j in range(width):
+
+            if i==14 and j==14:
+                print("debug")
+
             coords_grid[i,j,0] = coords_flat[2 * width * i + 2 * j]
             coords_grid[i,j,1] = coords_flat[2 * width * i + 2 * j + 1]
     return coords_grid
@@ -322,7 +343,7 @@ if __name__ == "__main__":
     coords_flat = coords.flatten()  # [0,0,1,0,...,W,0, ... 0,H,1,H,W,H]
     u_grid_flat = u_grid.flatten()
 
-    FACE_AREAS = face_areas
+    FACE_AREAS = face_areas + [NPAD,NPAD,NPAD,NPAD]
     U_GRID = u_grid
     U_GRID_FLATTEN = u_grid.flatten()
 
@@ -330,7 +351,7 @@ if __name__ == "__main__":
     coords_mod = coords_flat
     result_energy_vec = []
 
-    nIter = 100
+    nIter = 20
     alpha_rate_start = 0.01
 
     for iIter in range(nIter):
@@ -342,9 +363,22 @@ if __name__ == "__main__":
         alpha_rate = alpha_rate_start
 
         coords_mod = coords_mod - alpha_rate * result1_der
-        
+
+        #debug
+        coords_mod_debug = map_flat_to_grid(coords_mod, HEIGHT_PAD, WIDTH_PAD)
+        coords_mod_debug_x = copy.deepcopy(coords_mod_debug[:, :, 0])
+        coords_mod_debug_y = copy.deepcopy(coords_mod_debug[:, :, 1])
+        coords_mod_debug2 = np.ndarray((HEIGHT_PAD,WIDTH_PAD,2),dtype=np.float32)
+        for j in range(1, WIDTH_PAD):
+            coords_mod_debug2[:, j, 0] = coords_mod_debug[:, j, 0] - coords_mod_debug[:, j - 1, 0]
+        for i in range(1, HEIGHT_PAD):
+            coords_mod_debug2[i, :, 1] = coords_mod_debug[i, :, 1] - coords_mod_debug[i - 1, :, 1]
+        ef_der_debug_tf = coords_mod_debug2 >= 0
+        ef_der_debug_tf_x = copy.deepcopy(ef_der_debug_tf[:, :, 0])
+        ef_der_debug_tf_y = copy.deepcopy(ef_der_debug_tf[:, :, 1])
+
         #plot current meshgrid
-        if (iIter % 5 == 0):
+        if (iIter % 1 == 0):
             result_grid = map_flat_to_grid(coords_mod, HEIGHT_PAD, WIDTH_PAD)
             output_filename = "./results/grid_%d.png" % iIter
 
