@@ -7,11 +7,12 @@ import numpy as np
 from scipy.optimize import minimize
 import copy
 import cv2
-from math import sqrt
+from math import sqrt, tan, atan2, sin, cos
 import time
 
 WIDTH=114
 HEIGHT=86
+CAMERA_F = 200
 
 # neighbour for one pixel
 DW = 4
@@ -38,7 +39,7 @@ EIJ_GRID = np.zeros ( (HEIGHT_PAD, WIDTH_PAD, 2*DH+1, 2*DW+1, 2), dtype = np.flo
 
 
 def distort_coords(coords, cx, cy, k1):
-
+    # coords : H * W * 2
     height, width = coords.shape[:2]
     tmp1 = np.asarray([cx, cy], dtype=np.float32)
     tmp1 = np.tile(tmp1, (height, width, 1))
@@ -49,6 +50,21 @@ def distort_coords(coords, cx, cy, k1):
     tmp4 = tmp2/tmp3 + tmp1
 
     return tmp4
+
+
+def distort_coords_v2(coords,cx,cy,f):
+    # coords : H * W * 2
+    height, width = coords.shape[:2]
+    d0 = min(height, width)
+    r0 =  d0 / 2 * tan(0.5 * atan2(d0, 2*f))
+    coords_r = np.sqrt(np.sum((coords - [cx, cy]) ** 2, axis = -1))
+    coords_phi = np.arctan2(coords[:,:,1]-cy, coords[:,:,0]-cx)
+    coords_ru = r0 * np.tan( 0.5 * np.arctan2(coords_r, f))
+    coords_xyu = np.zeros_like(coords, dtype = np.float32)
+    coords_xyu[:, :, 1] = coords_ru * np.sin(coords_phi) + cy
+    coords_xyu[:, :, 0] = coords_ru * np.cos(coords_phi) + cx
+    return coords_xyu
+
 
 def myfunc(coords):
     # - coords : 1 * (H * W * 2)
@@ -338,7 +354,10 @@ if __name__ == "__main__":
                     jshift += 1
                 ishift += 1
 
-    u_grid = distort_coords(coords, cx+NPAD, cy+NPAD, k1)
+    # u_grid = distort_coords(coords, cx+NPAD, cy+NPAD, k1)
+    u_grid = distort_coords_v2(coords, cx + NPAD, cy + NPAD, CAMERA_F)
+    output_filename = "./results/grid_u.png"   #debug
+    visualize_grid(u_grid, output_filename)
 
     coords_flat = coords.flatten()  # [0,0,1,0,...,W,0, ... 0,H,1,H,W,H]
     u_grid_flat = u_grid.flatten()
