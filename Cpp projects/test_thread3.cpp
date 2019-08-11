@@ -17,7 +17,7 @@ void safecopy(float* buff0, float* buff1) {
 	std::lock_guard<std::mutex> guard(some_mutex);  //mutex to myfunc2
 	memcpy(buff1, buff0, BUFFER_SIZE * sizeof(float));
 
-	//check buff0 == buff1 data , without mutex , data will be modified by myfunc1
+	//check buff0 == buff1 data , without mutex , data will be modified by myfunc2
 	for (int i = 0; i < BUFFER_SIZE; i++) {
 		if (buff0[i] != buff1[i]) {
 			printf("buff0 != buff1 !");
